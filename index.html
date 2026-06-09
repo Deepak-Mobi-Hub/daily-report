@@ -1,0 +1,1760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Report Generator - Gitex & Circular Tech</title>
+    <!-- html2canvas library for PNG export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- SortableJS library for Drag and Drop -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+    <style>
+        :root {
+            /* 3D Paper Pink Theme Colors (Default) */
+            --bg-color: #fce7f3;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --primary-color: #db2777;
+            --primary-hover: #be185d;
+            
+            --done-bg: #db2777;
+            --done-text: #ffffff;
+            --pending-bg: #f1f5f9;
+            --pending-text: #64748b;
+            --progress-bg: #fce7f3;
+            --progress-text: #9d174d;
+        }
+
+        body.theme-blue {
+            /* 3D Paper Blue Theme Colors */
+            --bg-color: #eff6ff;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            
+            --done-bg: #2563eb;
+            --progress-bg: #dbeafe;
+            --progress-text: #1e40af;
+            background-image: linear-gradient(135deg, #f0fdfa 0%, #eff6ff 100%);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            background-image: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.5;
+            min-height: 100vh;
+        }
+
+        /* Tab Navigation */
+        .tabs-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .tab-btn {
+            padding: 10px 24px;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: #ffffff;
+            color: var(--text-muted);
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: #ffffff;
+            border-color: var(--primary-color);
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1), 0 4px 6px rgba(219, 39, 119, 0.3);
+            transform: translateY(1px);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: #f8fafc;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        }
+
+        .tab-pane {
+            display: none;
+        }
+
+        .tab-pane.active {
+            display: block;
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .left-panel {
+            flex: 0 0 520px;
+            width: 520px;
+        }
+
+        .right-panel {
+            flex: 1;
+            min-width: 0;
+            max-width: 700px; 
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* 3D Paper Card Styles */
+        .card, .postcard, .controls-bar {
+            background-color: var(--card-bg);
+            border-radius: 2px; /* Sharp corners for paper look */
+            position: relative;
+            /* 3D layered paper shadow */
+            box-shadow: 
+                0 1px 1px rgba(0,0,0,0.05), 
+                0 2px 2px rgba(0,0,0,0.05), 
+                0 4px 4px rgba(0,0,0,0.05), 
+                0 8px 8px rgba(0,0,0,0.05),
+                0 16px 16px rgba(0,0,0,0.05);
+            margin-bottom: 24px;
+            z-index: 1;
+        }
+
+        /* Stacked paper pseudo-element */
+        .card::before, .postcard::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: -4px; bottom: -4px;
+            background: #f8fafc;
+            z-index: -1;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border-radius: 2px;
+        }
+
+        .card { padding: 24px; overflow-x: auto; }
+        .postcard { padding: 32px; width: 100%; min-width: 480px; max-width: 650px; margin: 0 auto; }
+
+        /* Remove shadows when exporting to image for clean borders */
+        .exporting, .exporting::before {
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            transform: none !important;
+        }
+        .exporting::before { display: none !important; }
+
+        h1, h2, h3 { margin-top: 0; color: var(--text-main); }
+
+        .header-title {
+            text-align: center;
+            margin-bottom: 0;
+            color: #111827;
+            text-shadow: 1px 1px 0 #ffffff;
+        }
+
+        /* Theme Toggle Switch */
+        .theme-switch input:checked + span { background-color: var(--primary-color); }
+        .theme-switch input:checked + span span { transform: translateX(20px); }
+
+        /* Table Styles */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Drag and Drop Styles */
+        .drag-handle {
+            cursor: grab;
+            color: #94a3b8;
+            font-size: 20px;
+            user-select: none;
+            transition: color 0.2s;
+            text-align: center;
+        }
+        .drag-handle:hover { color: var(--primary-color); }
+        .drag-handle:active { cursor: grabbing; color: var(--primary-hover); }
+        .sortable-ghost {
+            opacity: 0.4;
+            background-color: #fce7f3;
+            border: 2px dashed var(--primary-color);
+        }
+
+        /* Matrix Table */
+        .matrix-table th, .matrix-table td { padding: 8px 6px; text-align: center; }
+        .matrix-table th:first-child, .matrix-table td:first-child { text-align: left; }
+        .matrix-table td { font-size: 13px; }
+        .matrix-check { color: var(--primary-color); font-weight: bold; font-size: 15px; }
+
+        /* Input Styles */
+        input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="week"], input[type="month"], select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+            color: var(--text-main);
+            transition: all 0.2s;
+            background: #f8fafc;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);
+        }
+
+        input[type="text"]:focus, input[type="email"]:focus, input[type="number"]:focus, input[type="date"]:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.15);
+        }
+        
+        input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary-color); cursor: pointer; }
+
+        /* Button Styles */
+        .btn-group { display: flex; gap: 12px; margin-top: 24px; }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.1s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:active { transform: translateY(2px); box-shadow: none !important; }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 0 #be185d, 0 5px 10px rgba(219, 39, 119, 0.4);
+        }
+        
+        .btn-primary:hover { background-color: var(--primary-hover); transform: translateY(1px); box-shadow: 0 3px 0 #831843, 0 4px 8px rgba(219, 39, 119, 0.4); }
+
+        .btn-secondary {
+            background-color: #ffffff;
+            color: var(--primary-color);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 0 var(--border-color), 0 5px 10px rgba(0,0,0,0.05);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            transform: translateY(1px);
+            box-shadow: 0 3px 0 #cbd5e1, 0 4px 8px rgba(0,0,0,0.05);
+        }
+        
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+            box-shadow: 0 4px 0 #b91c1c, 0 5px 10px rgba(239, 68, 68, 0.3);
+        }
+        
+        .btn-danger:hover { background-color: #dc2626; transform: translateY(1px); box-shadow: 0 3px 0 #991b1b, 0 4px 8px rgba(239, 68, 68, 0.3); }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 2px;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: center;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .badge-done { background-color: var(--done-bg); color: var(--done-text); box-shadow: inset 0 0 0 1px #be185d; }
+        .badge-pending { background-color: var(--pending-bg); color: var(--pending-text); box-shadow: inset 0 0 0 1px #cbd5e1; }
+        .badge-progress { background-color: var(--progress-bg); color: var(--progress-text); box-shadow: inset 0 0 0 1px #fbcfe8; }
+
+        /* Postcard Elements */
+        .postcard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 20px;
+        }
+
+        .brand-name { font-size: 24px; font-weight: 800; color: #111827; margin: 0; letter-spacing: -0.5px; }
+        .brand-subtitle { font-size: 11px; color: var(--primary-color); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
+        .meta-info { text-align: right; }
+        .meta-info p { margin: 2px 0; font-size: 13px; color: var(--text-muted); }
+        .meta-info strong { color: var(--text-main); }
+
+        .stats-grid { display: flex; gap: 16px; margin-bottom: 20px; }
+        .stat-card {
+            flex: 1;
+            background-color: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .stat-value { font-size: 24px; font-weight: bold; color: var(--primary-color); margin-bottom: 4px; }
+        .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+
+        .report-table th { background-color: transparent; border-bottom: 2px solid var(--border-color); color: var(--text-muted); }
+        .row-done td { background-color: rgba(219, 39, 119, 0.05); }
+        .task-name-display { font-weight: 500; color: #1e293b; }
+        
+        .auto-save-indicator {
+            font-size: 13px;
+            color: var(--primary-color);
+            text-align: right;
+            margin-top: 12px;
+            opacity: 0;
+            font-weight: 600;
+            transition: opacity 0.3s;
+        }
+
+        .controls-bar {
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 1100px) {
+            .main-layout { flex-direction: column; align-items: center; }
+            .left-panel, .right-panel { flex: 1; width: 100%; max-width: 650px; }
+        }
+        @media (max-width: 600px) {
+            .btn-group { flex-direction: column; }
+            .btn { width: 100%; }
+            .postcard { width: 100%; padding: 20px; min-width: auto; }
+            .tabs-container { flex-direction: column; }
+            .profile-inputs { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 10px;">
+        <div style="width: 120px;"></div> <!-- Spacer for centering -->
+        <h1 class="header-title">Event Hub Report Generator</h1>
+        <div class="theme-switch" style="display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-muted); width: 120px; justify-content: flex-end;">
+            Pink
+            <label style="position: relative; display: inline-block; width: 40px; height: 20px;">
+                <input type="checkbox" id="theme-toggle-cb" onchange="toggleTheme()" style="opacity: 0; width: 0; height: 0;">
+                <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .4s; border-radius: 20px;">
+                    <span style="position: absolute; content: ''; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white; transition: .4s; border-radius: 50%;"></span>
+                </span>
+            </label>
+            Blue
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs-container">
+        <button class="tab-btn active" onclick="switchTab('tab-daily', this)">Daily Report</button>
+        <button class="tab-btn" onclick="switchTab('tab-weekly', this)">Weekly Summary</button>
+        <button class="tab-btn" onclick="switchTab('tab-monthly', this)">Monthly Overview</button>
+        <button class="tab-btn" onclick="switchTab('tab-templates', this)">Message Templates</button>
+    </div>
+
+    <!-- DAILY TAB -->
+    <div id="tab-daily" class="tab-pane active">
+        <div class="main-layout">
+            <!-- Left Column: Input Form -->
+            <div class="left-panel">
+                <div class="card" id="input-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h2 style="font-size: 18px; font-weight: 700; margin: 0; color: var(--text-main);">Settings & Tasks</h2>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="file" id="logo-upload" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+                            <button class="btn btn-secondary" onclick="document.getElementById('logo-upload').click()" style="font-size: 12px; padding: 6px 12px; box-shadow: 0 2px 0 var(--border-color);">📷 Logo</button>
+                            <button class="btn btn-danger" onclick="resetToDefault()" style="font-size: 12px; padding: 6px 12px; box-shadow: 0 2px 0 #b91c1c;">Reset Tasks</button>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-inputs" style="display: flex; gap: 12px; margin-bottom: 16px;">
+                        <div style="flex: 1;">
+                            <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Name:</label>
+                            <input type="text" id="user-name" oninput="saveProfile()" placeholder="Enter your name">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Email:</label>
+                            <input type="email" id="user-email" oninput="saveProfile()" placeholder="Enter your email">
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+                        <label style="font-size: 13px; font-weight: 600; color: var(--text-muted);">Editing Date:</label>
+                        <input type="date" id="daily-date-picker" onchange="loadFormForDate()" style="width: auto; padding: 6px 10px;">
+                    </div>
+
+                    <table id="task-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%; text-align: center;"></th>
+                                <th style="width: 5%; text-align: center;">✓</th>
+                                <th style="width: 40%;">Event Task</th>
+                                <th style="width: 20%; text-align: center;">Leads/Int.</th>
+                                <th style="width: 30%;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-tbody">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                    
+                    <div class="btn-group" style="margin-top: 20px; flex-direction: column; gap: 12px;">
+                        <button class="btn btn-primary" onclick="addCustomTask()" style="font-size: 15px; padding: 10px 20px; width: 100%;">➕ Add Custom Event Task</button>
+                        <div style="display: flex; gap: 8px; align-items: stretch; width: 100%;">
+                            <select id="recommended-tasks-dropdown" style="flex: 1; margin: 0;">
+                                <option value="" disabled selected>Select recommended task...</option>
+                            </select>
+                            <button class="btn btn-secondary" onclick="addRecommendedTask()" style="white-space: nowrap; padding: 0 16px;">➕ Add</button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 24px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <label style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin: 0;">Event Summary / Notes:</label>
+                            <button class="btn btn-secondary" onclick="generateAIPrompt()" style="font-size: 11px; padding: 4px 10px; box-shadow: 0 2px 0 var(--border-color);">Create AI Prompt</button>
+                        </div>
+                        <textarea id="daily-notes-input" rows="3" style="resize: vertical;" placeholder="Enter the crux of today's event activities here..." oninput="generateReport(true)"></textarea>
+                    </div>
+
+                    <div id="save-indicator" class="auto-save-indicator">✓ Auto-saved to local device</div>
+                </div>
+            </div>
+
+            <!-- Right Column: Generated Report Preview -->
+            <div class="right-panel">
+                <div class="btn-group" style="margin-top: 0; margin-bottom: 24px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" onclick="copyImage('postcard-daily', this)">📋 Copy Image</button>
+                    <button class="btn btn-primary" onclick="downloadPNG('postcard-daily', 'DailyReport', this)">📥 Download PNG</button>
+                    <button class="btn btn-primary" onclick="emailReport()" style="background-color: #334155; box-shadow: 0 4px 0 #1e293b, 0 5px 10px rgba(0,0,0,0.2);">✉️ Email Report</button>
+                </div>
+
+                <div class="postcard-wrapper">
+                    <div class="postcard" id="postcard-daily">
+                        <div class="postcard-header">
+                            <div class="brand">
+                                <img class="brand-logo" src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height: 44px; display: block; margin-bottom: 8px; max-width: 160px; object-fit: contain;" alt="Brand Logo">
+                                <h1 class="brand-name brand-text" style="display: none;">EVENT HUB</h1>
+                                <span class="brand-subtitle">Daily Output Report</span>
+                            </div>
+                            <div class="meta-info">
+                                <p>Name: <strong class="display-name"></strong></p>
+                                <p class="email-container" style="display: none;">Email: <strong class="display-email"></strong></p>
+                                <p>Date: <strong id="report-date-display"></strong></p>
+                            </div>
+                        </div>
+
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <div class="stat-value" id="stat-completed">0/0</div>
+                                <div class="stat-label">Tasks Completed</div>
+                            </div>
+                        </div>
+
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 55%;">Task Details</th>
+                                    <th style="width: 15%; text-align: center;">Leads/Int.</th>
+                                    <th style="width: 30%; text-align: right;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-tbody">
+                                <!-- Content injected via JS -->
+                            </tbody>
+                        </table>
+
+                        <div id="report-notes-container" style="margin-top: 24px; display: none;">
+                            <h3 style="font-size: 14px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; letter-spacing: 0.05em;">Summary / Notes</h3>
+                            <p id="report-notes-display" style="font-size: 14px; color: var(--text-main); white-space: pre-wrap; margin: 0; line-height: 1.6;"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WEEKLY TAB -->
+    <div id="tab-weekly" class="tab-pane">
+        <div class="controls-bar">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <label style="font-weight: 600; color: var(--text-main);">Select Week:</label>
+                <input type="week" id="week-selector" onchange="renderWeekly()">
+            </div>
+            <div class="btn-group" style="margin-top: 0;">
+                <button class="btn btn-secondary" onclick="copyImage('postcard-weekly', this)">📋 Copy Image</button>
+                <button class="btn btn-primary" onclick="downloadPNG('postcard-weekly', 'WeeklyReport', this)">📥 Download PNG</button>
+            </div>
+        </div>
+
+        <div class="postcard-wrapper">
+            <div class="postcard" id="postcard-weekly">
+                <div class="postcard-header">
+                    <div class="brand">
+                        <img class="brand-logo" src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height: 44px; display: block; margin-bottom: 8px; max-width: 160px; object-fit: contain;" alt="Brand Logo">
+                        <h1 class="brand-name brand-text" style="display: none;">EVENT HUB</h1>
+                        <span class="brand-subtitle">Weekly Summary Report</span>
+                    </div>
+                    <div class="meta-info">
+                        <p>Name: <strong class="display-name"></strong></p>
+                        <p class="email-container" style="display: none;">Email: <strong class="display-email"></strong></p>
+                        <p>Week: <strong id="weekly-date-range"></strong></p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="weekly-stat-completed">0</div>
+                        <div class="stat-label">Total Tasks (Mon-Fri)</div>
+                    </div>
+                </div>
+
+                <table class="report-table matrix-table">
+                    <thead>
+                        <tr id="weekly-table-header">
+                            <th style="width: 50%;">Task Details</th>
+                            <th style="width: 10%;">Mon</th>
+                            <th style="width: 10%;">Tue</th>
+                            <th style="width: 10%;">Wed</th>
+                            <th style="width: 10%;">Thu</th>
+                            <th style="width: 10%;">Fri</th>
+                        </tr>
+                    </thead>
+                    <tbody id="weekly-tbody">
+                        <!-- Content injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MONTHLY TAB -->
+    <div id="tab-monthly" class="tab-pane">
+        <div class="controls-bar">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <label style="font-weight: 600; color: var(--text-main);">Select Month:</label>
+                <input type="month" id="month-selector" onchange="renderMonthly()">
+            </div>
+            <div class="btn-group" style="margin-top: 0;">
+                <button class="btn btn-secondary" onclick="copyImage('postcard-monthly', this)">📋 Copy Image</button>
+                <button class="btn btn-primary" onclick="downloadPNG('postcard-monthly', 'MonthlyReport', this)">📥 Download PNG</button>
+            </div>
+        </div>
+
+        <div class="postcard-wrapper">
+            <div class="postcard" id="postcard-monthly">
+                <div class="postcard-header">
+                    <div class="brand">
+                        <img class="brand-logo" src="logo.png" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';" style="max-height: 44px; display: block; margin-bottom: 8px; max-width: 160px; object-fit: contain;" alt="Brand Logo">
+                        <h1 class="brand-name brand-text" style="display: none;">EVENT HUB</h1>
+                        <span class="brand-subtitle">Monthly Overview Report</span>
+                    </div>
+                    <div class="meta-info">
+                        <p>Name: <strong class="display-name"></strong></p>
+                        <p class="email-container" style="display: none;">Email: <strong class="display-email"></strong></p>
+                        <p>Month: <strong id="monthly-date-range"></strong></p>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="monthly-stat-completed">0</div>
+                        <div class="stat-label">Total Tasks Completed</div>
+                    </div>
+                </div>
+
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40%;">Week Period</th>
+                            <th style="width: 30%; text-align: center;">Tasks Completed</th>
+                            <th style="width: 30%; text-align: right;">Intensity Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthly-tbody">
+                        <!-- Content injected via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TEMPLATES TAB -->
+    <div id="tab-templates" class="tab-pane">
+        <div class="card" style="max-width: 900px; margin: 0 auto; background: var(--card-bg);">
+            <h2 class="header-title" style="margin-bottom: 8px;">NEW JOINER OUTREACH GUIDE</h2>
+            <p style="text-align: center; color: var(--text-muted); margin-bottom: 32px;">GITEX Circular Tech Hub | Circular Tech Awards | Mobihub Events</p>
+            
+            <div style="display: grid; gap: 32px; grid-template-columns: 1fr;">
+                
+                <!-- Before you start -->
+                <div style="background: #f8fafc; padding: 24px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <h3 style="margin-top: 0; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">BEFORE YOU START</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                        <div>
+                            <strong style="color: var(--text-main);">Set yourself up</strong>
+                            <ul style="margin-top: 8px; margin-bottom: 16px; padding-left: 20px; font-size: 14px;">
+                                <li>Update your LinkedIn headline — mention Circular Tech Hub or Mobihub Events</li>
+                                <li>Set your WhatsApp status: "GITEX Circular Tech Hub Berlin — June 30–July 1"</li>
+                                <li>Add the event link to your LinkedIn featured section</li>
+                            </ul>
+                            <strong style="color: var(--text-main);">Focus industries</strong>
+                            <p style="margin-top: 8px; margin-bottom: 0; font-size: 14px;">Refurbished devices · ITAD · Consumer electronics · Accessories · Recycling · ESG · Sustainable tech · OEMs</p>
+                        </div>
+                        <div>
+                            <strong style="color: var(--text-main);">Golden rules</strong>
+                            <ul style="margin-top: 8px; margin-bottom: 0; padding-left: 20px; font-size: 14px;">
+                                <li>Always lead with CTH first</li>
+                                <li>Never open with price</li>
+                                <li>If declined for CTH, transition to offering a free pass</li>
+                                <li>If declined again, always highlight CTA nomination</li>
+                                <li>Conclude every communication with a single, clear question</li>
+                                <li>Maintain thorough tracking: name, company, platform, date, and response</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sequence Timeline & Funnel -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3 style="border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">SEQUENCE TIMELINE</h3>
+                        <table style="font-size: 13px; margin-top: 12px; border: 1px solid var(--border-color);">
+                            <tr style="background: #f1f5f9;"><th style="padding: 6px;">Day</th><th style="padding: 6px;">Action</th></tr>
+                            <tr><td style="padding: 6px;">Day 1</td><td style="padding: 6px;">LinkedIn connect + Message 1 + Email 1</td></tr>
+                            <tr><td style="padding: 6px;">Day 2</td><td style="padding: 6px;">WhatsApp Message 1</td></tr>
+                            <tr><td style="padding: 6px;">Day 3</td><td style="padding: 6px;">LinkedIn Message 2</td></tr>
+                            <tr><td style="padding: 6px;">Day 4</td><td style="padding: 6px;">Email 2</td></tr>
+                            <tr><td style="padding: 6px;">Day 5</td><td style="padding: 6px;">WhatsApp Message 2</td></tr>
+                            <tr><td style="padding: 6px;">Day 7</td><td style="padding: 6px;">Free pass offer if no response</td></tr>
+                            <tr><td style="padding: 6px;">Day 10</td><td style="padding: 6px;">CTA push across all channels</td></tr>
+                            <tr><td style="padding: 6px;">Day 14</td><td style="padding: 6px;">Final close across all channels</td></tr>
+                        </table>
+                    </div>
+                    <div>
+                        <h3 style="border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">THE FUNNEL</h3>
+                        <div style="background: #f8fafc; padding: 16px; border-radius: 6px; font-size: 14px; text-align: center; font-weight: 600; border: 1px solid var(--border-color);">
+                            <div>CTH Booth / Sponsorship</div>
+                            <div style="color: var(--text-muted); font-size: 12px; margin: 4px 0;">↓ if no</div>
+                            <div>Free Visitor Pass</div>
+                            <div style="color: var(--text-muted); font-size: 12px; margin: 4px 0;">↓ if still no</div>
+                            <div>Circular Tech Awards Nomination</div>
+                            <div style="color: var(--text-muted); font-size: 12px; margin: 4px 0;">↓ always</div>
+                            <div>Stay connected for future events</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LinkedIn Sequence -->
+                <div>
+                    <h3 style="border-bottom: 2px solid #0284c7; padding-bottom: 8px; color: #0284c7;">LINKEDIN SEQUENCE</h3>
+                    
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-li-1', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 1 — First Touch</h4>
+                        <div id="tpl-li-1" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+I am reaching out from Mobihub Events. We are organizing the GITEX Circular Tech Hub in Berlin—the premier circular economy stage within GITEX AI Europe, scheduled for June 30–July 1.
+
+Given [Company]'s expertise in [sector], I believe there is a strong strategic fit for collaboration. 
+
+Would you be available for a brief introductory call this week?</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-li-2', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 2 — Follow Up (Day 3)</h4>
+                        <div id="tpl-li-2" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+I am following up on my previous message. Exhibitor allocations for the Circular Tech Hub are reaching capacity, and I wanted to ensure [Company] had the opportunity to review the details prior to closure.
+
+Please let me know if you are open to a 10-minute exploratory call.</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-li-3', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 3 — Free Pass Offer (if no to booth)</h4>
+                        <div id="tpl-li-3" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+I understand if exhibiting does not align with your immediate priorities. We would still be delighted to host you. 
+
+We have complimentary visitor passes available, enabling you to explore the event and network with key industry stakeholders without any commitment. 
+
+Would you like me to share the registration link?</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-li-4', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 4 — CTA Push (if still no)</h4>
+                        <div id="tpl-li-4" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+Before I conclude my outreach, I would like to introduce the Circular Tech Awards, which recognize leading enterprises driving the circular economy in Europe. 
+
+Nomination is entirely free of charge, and you do not need to attend the event to participate. [Company] presents a highly relevant profile for the [category] segment. 
+
+Would you be interested in receiving the nomination guidelines?</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-li-5', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 5 — Final</h4>
+                        <div id="tpl-li-5" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+Thank you for your time. If the timing for Berlin or the awards is not optimal right now, I completely understand. 
+
+I would appreciate the opportunity to remain connected and keep you informed about our future initiatives. 
+
+I look forward to keeping in touch.</div>
+                    </div>
+                </div>
+
+                <!-- Email Sequence -->
+                <div>
+                    <h3 style="border-bottom: 2px solid #b91c1c; padding-bottom: 8px; color: #b91c1c;">EMAIL SEQUENCE</h3>
+                    
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-em-1', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Email 1 — Cold Outreach</h4>
+                        <div id="tpl-em-1" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Subject: Strategic Collaboration: GITEX Circular Tech Hub Berlin | [Company]
+
+Dear [First Name],
+
+I am contacting you on behalf of Mobihub Events. We are organizing the Circular Tech Hub at GITEX AI Europe Berlin—the dedicated circular economy exhibition at one of Europe's largest technology events. The event will take place from June 30 to July 1 at Messe Berlin, Hall 2.2.
+
+Given [Company]'s significant contributions to the [sector] industry, I see a substantial opportunity for collaboration, whether through exhibiting, sponsoring, or general attendance by your team.
+
+Would you be open to a 15-minute call this week to discuss potential synergies?
+
+Best regards,
+
+Deepak
+Mobihub Events
++44 7477 740831
+deepak@mobi-hub.com</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-em-2', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Email 2 — Follow Up (Day 4)</h4>
+                        <div id="tpl-em-2" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Subject: Follow-up: Exhibitor Opportunities at Circular Tech Hub Berlin
+
+Dear [First Name],
+
+I am writing to follow up on my previous correspondence. 
+
+We are currently allocating the final remaining exhibitor spaces, and I wanted to ensure this opportunity was brought to your attention before registration closes.
+
+Please let me know if you would like me to forward the comprehensive event details for your review.
+
+Best regards,
+
+Deepak</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-em-3', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Email 3 — Free Pass Offer</h4>
+                        <div id="tpl-em-3" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Subject: Complimentary Visitor Pass: GITEX Circular Tech Hub Berlin
+
+Dear [First Name],
+
+I completely understand if exhibiting does not fit into your current operational focus. 
+
+We would still value your presence at the event. I am pleased to offer you complimentary visitor passes, allowing you to walk the exhibition floor and engage with the leading organizations shaping the European circular tech sector.
+
+You may register using the following link:
+https://shorturl.at/Wa7yB
+
+Best regards,
+
+Deepak</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-em-4', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Email 4 — CTA Push</h4>
+                        <div id="tpl-em-4" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Subject: Nomination Opportunity: Circular Tech Awards | [Company]
+
+Dear [First Name],
+
+I would also like to introduce you to the Circular Tech Awards, an initiative we are hosting concurrently with the main event.
+
+The awards are free to enter and open to all organizations within the sector. It is an excellent platform to gain industry-wide recognition across Europe, regardless of your physical attendance at the event.
+
+Based on our review, [Company] appears to be an exceptional candidate for the [category] award.
+
+The nomination process is brief and can be completed here:
+https://shorturl.at/Wa7yB
+
+Would you consider submitting a nomination on behalf of your team?
+
+Best regards,
+
+Deepak</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-em-5', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Email 5 — Final Close</h4>
+                        <div id="tpl-em-5" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Subject: Staying Connected | Mobihub Events
+
+Dear [First Name],
+
+If the current timing does not align with your objectives, please accept my understanding. 
+
+I will ensure [Company] remains in our directory for highly relevant future events and opportunities. 
+
+I look forward to keeping our lines of communication open.
+
+Best regards,
+
+Deepak</div>
+                    </div>
+                </div>
+
+                <!-- WhatsApp Sequence -->
+                <div>
+                    <h3 style="border-bottom: 2px solid #15803d; padding-bottom: 8px; color: #15803d;">WHATSAPP SEQUENCE</h3>
+                    
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-wa-1', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 1 — First Touch</h4>
+                        <div id="tpl-wa-1" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+I am [Name] with Mobihub Events. We are hosting the GITEX Circular Tech Hub—the primary circular economy platform within GITEX AI Europe—in Berlin from June 30 to July 1 at Messe Berlin. 
+
+Given your leadership role at [Company], I wanted to inquire if you or your team are planning to attend?</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-wa-2', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 2 — Follow Up (Day 2)</h4>
+                        <div id="tpl-wa-2" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+I am following up regarding my previous message. We are finalizing the last available exhibition spaces and wanted to provide you with an update before availability concludes. 
+
+Would you have 10 minutes available for a brief discussion this week?</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-wa-3', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 3 — Free Pass Offer</h4>
+                        <div id="tpl-wa-3" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+If a formalized booth presence is not suitable at this time, we completely understand. 
+
+We would like to offer you complimentary visitor passes to experience the event and network with the attendees without any obligations. 
+
+May I provide you with the registration link?
+https://shorturl.at/Wa7yB</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-wa-4', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 4 — CTA Push</h4>
+                        <div id="tpl-wa-4" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+As a final note, we are also running the Circular Tech Awards to acknowledge outstanding achievements within the European circular economy. 
+
+Nominations are free, and [Company] aligns exceptionally well with the [category] award criteria. 
+
+Would you like me to share the participation details?</div>
+                    </div>
+
+                    <div style="position: relative; background: #ffffff; padding: 16px; border: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+                        <button class="btn btn-secondary" onclick="copyTemplateText('tpl-wa-5', this)" style="position: absolute; top: 16px; right: 16px; padding: 4px 12px; font-size: 12px;">Copy</button>
+                        <h4 style="margin: 0 0 12px 0; font-size: 15px;">Message 5 — Final</h4>
+                        <div id="tpl-wa-5" style="white-space: pre-wrap; font-family: inherit; font-size: 14px; color: var(--text-main); padding-right: 60px;">Dear [First Name],
+
+If the current schedule does not align with your availability, please accept my understanding. 
+
+I look forward to maintaining a professional connection and updating you on future engagements. 
+
+Thank you for your time.</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal for Copy Image -->
+<div id="image-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.9); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; padding: 20px; box-sizing: border-box; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-color); padding: 20px; border-radius: 4px; max-width: 100%; max-height: 95%; display: flex; flex-direction: column; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 16px; align-items: center; gap: 20px; background: white; padding: 12px 16px; border-radius: 4px; border: 1px solid var(--border-color);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 24px;">📸</span>
+                <div>
+                    <h3 style="margin: 0; font-size: 16px; color: var(--text-main);">Image Ready!</h3>
+                    <p style="margin: 2px 0 0 0; font-size: 13px; color: var(--text-muted);">Click the button to copy to your clipboard.</p>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="copyModalImage()" id="modal-copy-btn" class="btn btn-primary" style="padding: 6px 16px; margin: 0; box-shadow: 0 2px 0 #be185d;">📋 Copy Image</button>
+                <button onclick="closeImageModal()" class="btn btn-secondary" style="padding: 6px 16px; margin: 0; box-shadow: 0 2px 0 var(--border-color);">Close</button>
+            </div>
+        </div>
+        <div style="overflow: auto; display: flex; justify-content: center; background: transparent;">
+            <img id="modal-image-preview" style="max-width: 100%; height: auto; border-radius: 2px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        </div>
+    </div>
+</div>
+
+<!-- Generic Message Modal -->
+<div id="message-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+    <div class="card" style="padding: 32px; max-width: 400px; text-align: center; margin: 0;">
+        <p id="message-modal-text" style="margin: 0 0 24px 0; font-size: 16px; color: var(--text-main);"></p>
+        <button onclick="closeMessageModal()" class="btn btn-primary" style="width: 100%;">OK</button>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="confirm-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+    <div class="card" style="padding: 32px; max-width: 400px; text-align: center; margin: 0;">
+        <p id="confirm-modal-text" style="margin: 0 0 24px 0; font-size: 16px; color: var(--text-main); font-weight: 500;"></p>
+        <div style="display: flex; gap: 12px; justify-content: center;">
+            <button onclick="closeConfirmModal(false)" class="btn btn-secondary" style="flex: 1;">Cancel</button>
+            <button onclick="closeConfirmModal(true)" class="btn btn-danger" style="flex: 1;">Confirm Reset</button>
+        </div>
+    </div>
+</div>
+
+<!-- AI Prompt Modal -->
+<div id="ai-prompt-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 2000; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; backdrop-filter: blur(2px);">
+    <div class="card" style="padding: 32px; max-width: 500px; width: 100%; margin: 0;">
+        <h3 style="margin: 0 0 8px 0; color: var(--text-main); font-size: 20px; font-weight: 800;">Generate Summary with AI</h3>
+        <p style="font-size: 14px; color: var(--text-muted); margin: 0 0 20px 0;">Copy this prompt and paste it into ChatGPT, Gemini, or Claude to get a concise crux of your day.</p>
+        <textarea id="ai-prompt-text" rows="8" style="width: 100%; margin-bottom: 20px; font-family: monospace; font-size: 13px; padding: 16px; background: #f8fafc; border: 1px solid var(--border-color); border-radius: 4px; box-sizing: border-box;" readonly></textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 12px;">
+            <button onclick="closeAIPromptModal()" class="btn btn-secondary">Cancel</button>
+            <button onclick="copyAIPrompt()" class="btn btn-primary" id="copy-ai-btn">Copy Prompt</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // System Utilities & Global State (Adapted for Events)
+    const defaultTasks = [
+        "Gitex: Booth Operations & Demo",
+        "Gitex: Lead Generation",
+        "LinkedIn: Connection Requests",
+        "LinkedIn: Initial Messages Sent",
+        "LinkedIn: Follow-up Messages",
+        "WhatsApp: Outreach Messages",
+        "Circular Tech Hub: Partner Meetings",
+        "CRM Entry for Event Leads"
+    ];
+
+    const recommendedTasksList = [
+        "Gitex: Booth Operations & Demo",
+        "Gitex: Lead Generation",
+        "LinkedIn: Connection Requests",
+        "LinkedIn: Initial Messages Sent",
+        "LinkedIn: Follow-up Messages",
+        "WhatsApp: Outreach Messages",
+        "WhatsApp: Group Blast",
+        "Email: Cold Outreach Sent",
+        "Email: Follow-ups",
+        "Circular Tech Hub: Partner Meetings",
+        "Circular Tech Hub: Networking",
+        "Circular Tech Award: Preparation & Pitch",
+        "Circular Tech Award: Ceremony Attendance",
+        "Event Social Media Updates",
+        "Follow-up with New Event Contacts",
+        "CRM Entry for Event Leads",
+        "Attended Keynote / Panel Discussion",
+        "Competitor Analysis at Event",
+        "Distribute Marketing Collateral",
+        "VIP / Investor Meetings"
+    ];
+
+    let saveTimeout;
+    let confirmActionCallback = null;
+
+    // Helper: Get local YYYY-MM-DD
+    function getLocalDateString(dateObj) {
+        const d = new Date(dateObj);
+        d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+        return d.toISOString().split('T')[0];
+    }
+
+    // Helper: Format date readable
+    function formatReadableDate(dateStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        const d = new Date(parts[0], parts[1]-1, parts[2]);
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    // Navigation Logic
+    function switchTab(tabId, btnElement) {
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+
+        document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+
+        if (tabId === 'tab-weekly') renderWeekly();
+        if (tabId === 'tab-monthly') renderMonthly();
+    }
+
+    // Logo Logic
+    function handleLogoUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const dataUrl = e.target.result;
+                localStorage.setItem('mobiHubLogo', dataUrl);
+                applyLogo(dataUrl);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function applyLogo(dataUrl) {
+        const logos = document.querySelectorAll('.brand-logo');
+        const texts = document.querySelectorAll('.brand-text');
+        
+        const finalSrc = dataUrl || 'logo.png';
+
+        logos.forEach(logoImg => {
+            logoImg.src = finalSrc;
+            logoImg.style.display = 'block';
+        });
+
+        texts.forEach(textLogo => {
+            if (dataUrl) {
+                textLogo.style.display = 'none';
+            }
+        });
+    }
+
+    // Theme Logic
+    function toggleTheme() {
+        const body = document.body;
+        body.classList.toggle('theme-blue');
+        const isBlue = body.classList.contains('theme-blue');
+        localStorage.setItem('mobiHubTheme', isBlue ? 'blue' : 'pink');
+    }
+
+    // User Profile Logic
+    function loadProfile() {
+        const profileStr = localStorage.getItem('mobiHubProfile');
+        let profile = { name: '', email: '' };
+        if (profileStr) {
+            try { profile = JSON.parse(profileStr); } catch (e) {}
+        }
+        document.getElementById('user-name').value = profile.name || '';
+        document.getElementById('user-email').value = profile.email || '';
+        updateProfileDisplays();
+    }
+
+    function saveProfile() {
+        const name = document.getElementById('user-name').value;
+        const email = document.getElementById('user-email').value;
+        localStorage.setItem('mobiHubProfile', JSON.stringify({ name, email }));
+        updateProfileDisplays();
+    }
+
+    function updateProfileDisplays() {
+        const name = document.getElementById('user-name').value || 'Unknown User';
+        const email = document.getElementById('user-email').value;
+        
+        document.querySelectorAll('.display-name').forEach(el => el.innerText = name);
+        document.querySelectorAll('.display-email').forEach(el => el.innerText = email);
+        
+        document.querySelectorAll('.email-container').forEach(el => {
+            el.style.display = email ? 'block' : 'none';
+        });
+    }
+
+    // Custom Modal Functions
+    function showMessageModal(text) {
+        document.getElementById('message-modal-text').innerText = text;
+        document.getElementById('message-modal').style.display = 'flex';
+    }
+
+    function closeMessageModal() {
+        document.getElementById('message-modal').style.display = 'none';
+    }
+
+    function showConfirmModal(text, callback) {
+        document.getElementById('confirm-modal-text').innerText = text;
+        document.getElementById('confirm-modal').style.display = 'flex';
+        confirmActionCallback = callback;
+    }
+
+    function closeConfirmModal(confirmed) {
+        document.getElementById('confirm-modal').style.display = 'none';
+        if (confirmed && confirmActionCallback) {
+            confirmActionCallback();
+        }
+        confirmActionCallback = null;
+    }
+
+    function showImageModal(imgDataUrl) {
+        document.getElementById('modal-image-preview').src = imgDataUrl;
+        document.getElementById('image-modal').style.display = 'flex';
+    }
+
+    function closeImageModal() {
+        document.getElementById('image-modal').style.display = 'none';
+        document.getElementById('modal-image-preview').src = '';
+    }
+
+    function generateAIPrompt() {
+        const rows = document.querySelectorAll('#task-tbody tr');
+        let completedTasksList = [];
+
+        rows.forEach(row => {
+            const isIncluded = row.querySelector('.task-include').checked;
+            const task = row.querySelector('.input-task').value.trim();
+            const status = row.querySelector('.input-status').value;
+
+            // Exclude general tasks if you only want to highlight specific outputs
+            if (isIncluded && task && status === 'Done' && task !== "Gitex: Booth Operations & Demo") {
+                completedTasksList.push(`- ${task}`);
+            }
+        });
+
+        if (completedTasksList.length === 0) {
+            showMessageModal("No completed tasks selected yet. Please mark some tasks as 'Done' first.");
+            return;
+        }
+
+        const promptText = `I need to send a brief daily end-of-day report to my boss about the event today. Here are the tasks I completed:\n\n${completedTasksList.join('\n')}\n\nPlease write a short, professional, and concise summary (just 2-3 sentences) capturing the crux of my event activities today. Focus on the value and output. Do not include greetings or sign-offs, just the core summary.`;
+
+        document.getElementById('ai-prompt-text').value = promptText;
+        document.getElementById('ai-prompt-modal').style.display = 'flex';
+        document.getElementById('copy-ai-btn').innerText = '📋 Copy Prompt';
+    }
+
+    function closeAIPromptModal() {
+        document.getElementById('ai-prompt-modal').style.display = 'none';
+    }
+
+    function copyAIPrompt() {
+        const textToCopy = document.getElementById('ai-prompt-text').value;
+        const btn = document.getElementById('copy-ai-btn');
+        
+        try {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                btn.innerText = 'Copied!';
+            }).catch(() => fallbackCopy(btn));
+        } catch (e) {
+            fallbackCopy(btn);
+        }
+    }
+
+    function fallbackCopy(btnElement) {
+        const textArea = document.getElementById('ai-prompt-text');
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            btnElement.innerText = 'Copied!';
+        } catch (err) {
+            btnElement.innerText = 'Failed to copy';
+        }
+    }
+
+    // ==========================================
+    // DAILY TAB LOGIC
+    // ==========================================
+
+    function initApp() {
+        const todayStr = getLocalDateString(new Date());
+        document.getElementById('daily-date-picker').value = todayStr;
+        
+        const savedLogo = localStorage.getItem('mobiHubLogo');
+        applyLogo(savedLogo);
+
+        const savedTheme = localStorage.getItem('mobiHubTheme');
+        if (savedTheme === 'blue') {
+            document.body.classList.add('theme-blue');
+            document.getElementById('theme-toggle-cb').checked = true;
+        }
+
+        loadProfile();
+        populateRecommendedTasks();
+        loadFormForDate();
+        
+        const d = new Date();
+        const year = d.getFullYear();
+        const start = new Date(year, 0, 1);
+        const days = Math.floor((d - start) / (24 * 60 * 60 * 1000));
+        const weekNum = Math.ceil((d.getDay() + 1 + days) / 7);
+        document.getElementById('week-selector').value = `${year}-W${weekNum.toString().padStart(2, '0')}`;
+        document.getElementById('month-selector').value = todayStr.substring(0, 7);
+
+        // Sortable Drag and Drop init
+        new Sortable(document.getElementById('task-tbody'), {
+            handle: '.drag-handle', 
+            animation: 150,         
+            ghostClass: 'sortable-ghost',
+            onEnd: function() {
+                generateReport(true);
+            }
+        });
+    }
+
+    function populateRecommendedTasks() {
+        const dropdown = document.getElementById('recommended-tasks-dropdown');
+        recommendedTasksList.forEach(task => {
+            const option = document.createElement('option');
+            option.value = task;
+            option.innerText = task;
+            dropdown.appendChild(option);
+        });
+    }
+
+    function loadFormForDate() {
+        const selectedDate = document.getElementById('daily-date-picker').value;
+        const tbody = document.getElementById('task-tbody');
+        const notesInput = document.getElementById('daily-notes-input');
+        tbody.innerHTML = ''; 
+
+        let history = JSON.parse(localStorage.getItem('mobiHubHistory') || '{}');
+        let dayData = history[selectedDate];
+
+        if (dayData && dayData.data) {
+            dayData.data.forEach((item) => {
+                let intVal = item.intensity !== undefined ? item.intensity : 1;
+                tbody.appendChild(createRowHTML(item.task, item.status, item.included, intVal));
+            });
+            notesInput.value = dayData.notes || '';
+        } else {
+            notesInput.value = '';
+            const todayStr = getLocalDateString(new Date());
+            const legacyData = localStorage.getItem('mobiHubTasks');
+            
+            if (selectedDate === todayStr && legacyData) {
+                const tasks = JSON.parse(legacyData);
+                tasks.forEach((item) => {
+                    let intVal = item.intensity !== undefined ? item.intensity : 1;
+                    tbody.appendChild(createRowHTML(item.task, item.status, item.included, intVal));
+                });
+            } else {
+                defaultTasks.forEach((taskName) => {
+                    tbody.appendChild(createRowHTML(taskName, 'Done', true, 1));
+                });
+            }
+        }
+        
+        generateReport(false); 
+    }
+
+    function createRowHTML(taskName = '', status = 'Done', included = true, intensity = 1) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="text-align: center; vertical-align: middle;" class="drag-handle" title="Drag to reorder">
+                ⋮⋮
+            </td>
+            <td style="text-align: center; vertical-align: middle;">
+                <input type="checkbox" class="task-include" ${included ? 'checked' : ''} onchange="generateReport(true)">
+            </td>
+            <td>
+                <input type="text" class="input-task" value="${taskName}" placeholder="Enter task..." oninput="generateReport(true)">
+            </td>
+            <td>
+                <input type="number" class="input-intensity" value="${intensity}" min="0" oninput="generateReport(true)" style="text-align: center;">
+            </td>
+            <td>
+                <select class="input-status" onchange="generateReport(true)">
+                    <option value="Done" ${status === 'Done' ? 'selected' : ''}>Done</option>
+                    <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
+                    <option value="In Progress" ${status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                </select>
+            </td>
+        `;
+        return tr;
+    }
+
+    function addCustomTask() {
+        const tbody = document.getElementById('task-tbody');
+        tbody.appendChild(createRowHTML('', 'Done', true, 1));
+        generateReport(true);
+    }
+
+    function addRecommendedTask() {
+        const dropdown = document.getElementById('recommended-tasks-dropdown');
+        const taskName = dropdown.value;
+        
+        if (!taskName) {
+            showMessageModal("Please select a task from the list first.");
+            return;
+        }
+
+        const tbody = document.getElementById('task-tbody');
+        tbody.appendChild(createRowHTML(taskName, 'Done', true, 1));
+        dropdown.value = "";
+        generateReport(true);
+    }
+
+    function resetToDefault() {
+        showConfirmModal("Are you sure you want to reset this date to the default event tasks?", () => {
+            const selectedDate = document.getElementById('daily-date-picker').value;
+            let history = JSON.parse(localStorage.getItem('mobiHubHistory') || '{}');
+            delete history[selectedDate];
+            localStorage.setItem('mobiHubHistory', JSON.stringify(history));
+            loadFormForDate();
+        });
+    }
+
+    function showSaveIndicator() {
+        const indicator = document.getElementById('save-indicator');
+        indicator.style.opacity = '1';
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
+    }
+
+    function generateReport(showSave = false) {
+        const rows = document.querySelectorAll('#task-tbody tr');
+        const reportTbody = document.getElementById('report-tbody');
+        const selectedDate = document.getElementById('daily-date-picker').value;
+        const notesVal = document.getElementById('daily-notes-input').value.trim();
+        reportTbody.innerHTML = ''; 
+
+        let totalTasks = 0;
+        let completedTasks = 0;
+        let totalIntensityScore = 0;
+        let dataToSave = [];
+
+        rows.forEach(row => {
+            const isIncluded = row.querySelector('.task-include').checked;
+            const task = row.querySelector('.input-task').value;
+            const status = row.querySelector('.input-status').value;
+            const intensityInput = row.querySelector('.input-intensity');
+            
+            const trimmedTask = task.trim();
+            
+            // Explicitly make all intensity fields visible regardless of task
+            intensityInput.style.visibility = 'visible';
+            const intensity = parseInt(intensityInput.value) || 0;
+
+            dataToSave.push({
+                task: task,
+                status: status,
+                included: isIncluded,
+                intensity: intensityInput.value
+            });
+
+            if (!isIncluded || !trimmedTask) return; 
+            totalTasks++;
+
+            if (status === 'Done') {
+                completedTasks++;
+                totalIntensityScore += intensity;
+            }
+
+            let badgeClass = '';
+            let rowClass = '';
+            if (status === 'Done') { badgeClass = 'badge-done'; rowClass = 'row-done'; } 
+            else if (status === 'Pending') { badgeClass = 'badge-pending'; } 
+            else if (status === 'In Progress') { badgeClass = 'badge-progress'; }
+
+            const reportIntensityDisplay = intensity;
+
+            const tr = document.createElement('tr');
+            if(rowClass) tr.classList.add(rowClass);
+            
+            tr.innerHTML = `
+                <td><div class="task-name-display">${trimmedTask}</div></td>
+                <td style="text-align: center; font-weight: 600;">${reportIntensityDisplay}</td>
+                <td style="text-align: right;">
+                    <span class="badge ${badgeClass}">${status}</span>
+                </td>
+            `;
+            reportTbody.appendChild(tr);
+        });
+
+        document.getElementById('report-date-display').innerText = formatReadableDate(selectedDate);
+        document.getElementById('stat-completed').innerText = `${completedTasks} / ${totalTasks}`;
+
+        const notesContainer = document.getElementById('report-notes-container');
+        const notesDisplay = document.getElementById('report-notes-display');
+        if (notesVal) {
+            notesDisplay.innerText = notesVal;
+            notesContainer.style.display = 'block';
+        } else {
+            notesContainer.style.display = 'none';
+        }
+
+        let history = JSON.parse(localStorage.getItem('mobiHubHistory') || '{}');
+        history[selectedDate] = {
+            date: selectedDate,
+            data: dataToSave,
+            stats: { total: totalTasks, completed: completedTasks, intensity: totalIntensityScore },
+            notes: notesVal
+        };
+        localStorage.setItem('mobiHubHistory', JSON.stringify(history));
+
+        if (selectedDate === getLocalDateString(new Date())) {
+            localStorage.setItem('mobiHubTasks', JSON.stringify(dataToSave));
+        }
+
+        if(showSave) showSaveIndicator();
+    }
+
+
+    // ==========================================
+    // WEEKLY TAB LOGIC
+    // ==========================================
+
+    function getDatesOfWeek(weekString) {
+        if (!weekString) return [];
+        const year = parseInt(weekString.substring(0, 4));
+        const week = parseInt(weekString.substring(6, 8));
+        
+        const simple = new Date(year, 0, 1 + (week - 1) * 7);
+        const dow = simple.getDay();
+        const ISOweekStart = simple;
+        if (dow <= 4)
+            ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+        else
+            ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+            
+        let dates = [];
+        for (let i = 0; i < 5; i++) { 
+            let d = new Date(ISOweekStart);
+            d.setDate(ISOweekStart.getDate() + i);
+            dates.push(getLocalDateString(d));
+        }
+        return dates;
+    }
+
+    function renderWeekly() {
+        const weekVal = document.getElementById('week-selector').value;
+        if (!weekVal) return;
+        
+        const dates = getDatesOfWeek(weekVal); 
+        const history = JSON.parse(localStorage.getItem('mobiHubHistory') || '{}');
+        
+        const thead = document.getElementById('weekly-table-header');
+        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+        for (let i=0; i<5; i++) {
+            const dStr = dates[i];
+            const d = new Date(dStr.split('-')[0], dStr.split('-')[1]-1, dStr.split('-')[2]);
+            thead.children[i+1].innerText = `${dayNames[i]} (${d.getDate()})`;
+        }
+        
+        document.getElementById('weekly-date-range').innerText = `${formatReadableDate(dates[0])} to ${formatReadableDate(dates[4])}`;
+
+        let uniqueTasksMap = new Map(); 
+        
+        dates.forEach(dStr => {
+            const dayRecord = history[dStr];
+            if (dayRecord && dayRecord.data) {
+                dayRecord.data.forEach(item => {
+                    if (item.included && item.task.trim() !== '') {
+                        const t = item.task.trim();
+                        uniqueTasksMap.set(t, false);
+                    }
+                });
+            }
+        });
+
+        const tbody = document.getElementById('weekly-tbody');
+        tbody.innerHTML = '';
+        
+        let grandTotalCompleted = 0;
+
+        uniqueTasksMap.forEach((_, taskName) => {
+            const tr = document.createElement('tr');
+            
+            let html = `<td><div class="task-name-display">${taskName}</div></td>`;
+            
+            dates.forEach(dStr => {
+                const dayRecord = history[dStr];
+                let cellHtml = '-';
+                if (dayRecord && dayRecord.data) {
+                    const taskItem = dayRecord.data.find(t => t.task.trim() === taskName && t.included);
+                    if (taskItem && taskItem.status === 'Done') {
+                        grandTotalCompleted++;
+                        const intVal = parseInt(taskItem.intensity) || 0;
+                        cellHtml = `<span class="matrix-check" style="color: var(--primary-color)">${intVal}</span>`;
+                    }
+                }
+                html += `<td>${cellHtml}</td>`;
+            });
+            
+            tr.innerHTML = html;
+            tbody.appendChild(tr);
+        });
+
+        if (uniqueTasksMap.size === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 20px; color: var(--text-muted);">No recorded tasks for this week.</td></tr>`;
+        }
+
+        document.getElementById('weekly-stat-completed').innerText = grandTotalCompleted;
+    }
+
+
+    // ==========================================
+    // MONTHLY TAB LOGIC
+    // ==========================================
+
+    function renderMonthly() {
+        const monthVal = document.getElementById('month-selector').value; 
+        if (!monthVal) return;
+
+        const history = JSON.parse(localStorage.getItem('mobiHubHistory') || '{}');
+        
+        const year = parseInt(monthVal.split('-')[0]);
+        const month = parseInt(monthVal.split('-')[1]) - 1; 
+        
+        const d = new Date(year, month, 1);
+        const monthName = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        document.getElementById('monthly-date-range').innerText = monthName;
+
+        let activeDates = Object.keys(history).filter(dateStr => dateStr.startsWith(monthVal)).sort();
+        
+        let grandCompleted = 0;
+
+        let weeksMap = {};
+        
+        activeDates.forEach(dateStr => {
+            const dateObj = new Date(dateStr.split('-')[0], dateStr.split('-')[1]-1, dateStr.split('-')[2]);
+            const start = new Date(dateObj.getFullYear(), 0, 1);
+            const days = Math.floor((dateObj - start) / (24 * 60 * 60 * 1000));
+            const weekNum = Math.ceil((dateObj.getDay() + 1 + days) / 7);
+            
+            const weekLabel = `Week ${weekNum}`;
+            if (!weeksMap[weekLabel]) {
+                weeksMap[weekLabel] = { count: 0, completed: 0, intensity: 0, dates: [] };
+            }
+            weeksMap[weekLabel].dates.push(dateStr);
+            weeksMap[weekLabel].completed += history[dateStr].stats.completed || 0;
+            weeksMap[weekLabel].intensity += history[dateStr].stats.intensity || 0;
+            
+            grandCompleted += history[dateStr].stats.completed || 0;
+        });
+
+        const tbody = document.getElementById('monthly-tbody');
+        tbody.innerHTML = '';
+
+        const weekKeys = Object.keys(weeksMap).sort();
+        
+        weekKeys.forEach(wk => {
+            const wData = weeksMap[wk];
+            wData.dates.sort();
+            const minDate = formatReadableDate(wData.dates[0]).split(',')[1].trim(); 
+            const maxDate = formatReadableDate(wData.dates[wData.dates.length-1]).split(',')[1].trim();
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>
+                    <div style="font-weight: 600; color: #1e293b;">${wk}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${minDate} - ${maxDate}</div>
+                </td>
+                <td style="text-align: center; font-weight: 500;">${wData.completed}</td>
+                <td style="text-align: right; font-weight: 600; color: var(--primary-color);">${wData.intensity}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (weekKeys.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px; color: var(--text-muted);">No recorded data for this month.</td></tr>`;
+        }
+
+        document.getElementById('monthly-stat-completed').innerText = grandCompleted;
+    }
+
+
+    // ==========================================
+    // EXPORT UTILITIES (Optimized for Canvas)
+    // ==========================================
+
+    function getRenderCanvas(elementId) {
+        const postcard = document.getElementById(elementId);
+        postcard.classList.add('exporting');
+        
+        return html2canvas(postcard, {
+            scale: 2, 
+            useCORS: true,
+            backgroundColor: '#ffffff'
+        }).finally(() => {
+            postcard.classList.remove('exporting');
+        });
+    }
+
+    function downloadPNG(elementId, filenamePrefix, btnElement) {
+        const originalText = btnElement.innerText;
+        btnElement.innerText = '⏳ Generating...';
+        btnElement.disabled = true;
+
+        getRenderCanvas(elementId).then(canvas => {
+            const link = document.createElement('a');
+            const dateStr = new Date().toISOString().split('T')[0];
+            const userName = document.getElementById('user-name').value.trim() || 'User';
+            link.download = `EventHub_${filenamePrefix}_${userName}_${dateStr}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            btnElement.innerText = originalText;
+            btnElement.disabled = false;
+        }).catch(err => {
+            console.error('Error generating image:', err);
+            showMessageModal('Failed to generate image. Please try again.');
+            btnElement.innerText = originalText;
+            btnElement.disabled = false;
+        });
+    }
+
+    function copyImage(elementId, btnElement) {
+        const originalText = btnElement.innerText;
+        btnElement.innerText = '⏳ Preparing...';
+        btnElement.disabled = true;
+
+        getRenderCanvas(elementId).then(canvas => {
+            const imgDataUrl = canvas.toDataURL('image/png');
+            showImageModal(imgDataUrl);
+            
+            btnElement.innerText = '✅ Ready!';
+            setTimeout(() => { 
+                btnElement.innerText = originalText; 
+                btnElement.disabled = false; 
+            }, 2000);
+        }).catch(err => {
+            console.error('Error preparing image for copy:', err);
+            showMessageModal('Failed to process image. Please try again.');
+            btnElement.innerText = originalText;
+            btnElement.disabled = false;
+        });
+    }
+
+    async function copyModalImage() {
+        const btn = document.getElementById('modal-copy-btn');
+        const originalText = btn.innerText;
+        btn.innerText = 'Copying...';
+        btn.disabled = true;
+
+        try {
+            const imgDataUrl = document.getElementById('modal-image-preview').src;
+            const response = await fetch(imgDataUrl);
+            const blob = await response.blob();
+            
+            const item = new ClipboardItem({ 'image/png': blob });
+            await navigator.clipboard.write([item]);
+            
+            btn.innerText = 'Copied!';
+            setTimeout(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }, 2000);
+        } catch (err) {
+            try {
+                // Secure iFrame Fallback strategy using execCommand on a selection
+                const imgDataUrl = document.getElementById('modal-image-preview').src;
+                const div = document.createElement('div');
+                div.contentEditable = true;
+                const img = document.createElement('img');
+                img.src = imgDataUrl;
+                div.appendChild(img);
+                document.body.appendChild(div);
+                
+                const selection = window.getSelection();
+                const range = document.createRange();
+                range.selectNodeContents(div);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(div);
+                selection.removeAllRanges();
+
+                if (successful) {
+                    btn.innerText = 'Copied!';
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                    }, 2000);
+                    return;
+                } else {
+                    throw new Error("Fallback failed");
+                }
+            } catch (fallbackErr) {
+                // Gracefully fail and inform the user to right-click
+                btn.innerText = 'Action Required';
+                showMessageModal('Unable to auto-copy due to browser security settings. Please right-click or long-press the image below to copy it manually.');
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            }
+        }
+    }
+
+    function copyTemplateText(elementId, btn) {
+        const textToCopy = document.getElementById(elementId).innerText;
+        const originalText = btn.innerText;
+        
+        if(navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                btn.innerText = 'Copied!';
+                setTimeout(() => { btn.innerText = originalText; }, 2000);
+            }).catch(() => fallbackCopyTemplate(textToCopy, btn, originalText));
+        } else {
+            fallbackCopyTemplate(textToCopy, btn, originalText);
+        }
+    }
+
+    function fallbackCopyTemplate(text, btn, originalText) {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+            document.execCommand('copy');
+            btn.innerText = 'Copied!';
+            setTimeout(() => { btn.innerText = originalText; }, 2000);
+        } catch (err) {
+            btn.innerText = 'Error';
+            setTimeout(() => { btn.innerText = originalText; }, 2000);
+        }
+        document.body.removeChild(textArea);
+    }
+
+    // Initialize application on load
+    window.onload = initApp;
+</script>
+
+</body>
+</html>
